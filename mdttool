@@ -141,7 +141,6 @@ def write_part_tbl(f):
 	    or (parttab['numparts2'] == -1)):
 		print('** Not writing partition table - uninitialized data **')
 		exit()
-	print(parttab)
 	b = [0] * blocksz
 	write16(b, 0x00, magic)
 	write16(b, 0x02, parttab['cyls'])
@@ -221,9 +220,11 @@ def assemble_mdt_image(f, files):
 	write_part_tbl(f)
 	for filename in files:
 		with open(filename, 'rb') as infile:
+			print('  Reading {} ...'.format(filename))
 			d = infile.read()
 			with open(f, 'ab') as outfile:
 				outfile.write(d)
+	print('New CF card image created in {}'.format(f))
 
 def initialize_blank_mdt():
 	pass
