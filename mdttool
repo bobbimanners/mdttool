@@ -132,7 +132,7 @@ def print_part_tbl():
 # Write partition table in parttab to file f
 # Writes 256 blocks (ie 128K)
 def write_part_tbl(f):
-	magic = 0xccac
+	magic = 0xccca
 	if ((parttab['cyls'] == -1)
 	    or (parttab['heads'] == -1)
 	    or (parttab['sectors'] == -1)
@@ -245,7 +245,7 @@ def main():
 	try:
 		opts, args = getopt.getopt(
 		               sys.argv[1:],
-		               'ho:axlCHSG',
+		               'ho:axlC:H:S:G:',
 		               ['help', 'output=', 'assemble', 'explode', 'list',
 		                'cylinders', 'heads', 'sectors', 'gs'])
 	except getopt.GetoptError as err:
@@ -276,13 +276,13 @@ def main():
 		elif o in ('-l', '--list'):
 			printtab = True
 		elif o in ('-C', '--cylinders'):
-			cylinders = a
+			cylinders = int(a)
 		elif o in ('-H', '--heads'):
-			heads = a
+			heads = int(a)
 		elif o in ('-S', '--sectors'):
-			sectors = a
+			sectors = int(a)
 		elif o in ('G', '--gs'):
-			gsvers = a
+			gsvers = int(a)
 		else:
 			assert False, 'Unhandled option'
 
