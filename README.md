@@ -5,7 +5,9 @@ for the Reactive Micro MicroDrive/Turbo card for the Apple II family.
 
 It is written in Python 3 and licenced under GPL v3.
 
-Usage:
+## Usage
+
+```
   mdttool [-haxlCHSG] [-o outputfile] inputfile [inputfile2...]
 
   -h  Show this help
@@ -16,6 +18,7 @@ Usage:
   -H  Set number of heads (when assembling new image)
   -S  Set number of sectors (when assembling new image)
   -G  Set GS ROM version (when assembling new image)
+```
 
 ## Display Partition Table
 
