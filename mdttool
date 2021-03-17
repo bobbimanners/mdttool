@@ -282,7 +282,7 @@ def main():
 			heads = int(a)
 		elif o in ('-S', '--sectors'):
 			sectors = int(a)
-		elif o in ('G', '--gs'):
+		elif o in ('-G', '--gs'):
 			gsvers = int(a)
 		else:
 			assert False, 'Unhandled option'
