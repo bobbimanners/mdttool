@@ -1,0 +1,285 @@
+#!/usr/bin/python3
+
+#
+# Simple tool to manipulate MicroDrive/Turbo CF Disk Images
+# Bobbi 2021
+#
+
+import getopt
+import os
+import sys
+
+# Sensible defaults for 512MB CF Card
+default_cyls    = 1006
+default_heads   = 16
+default_sectors = 63
+default_gsvers  = 0  # Apple //e
+
+parttab = dict()
+parttab['cyls']      = -1
+parttab['heads']     = -1
+parttab['sectors']   = -1
+parttab['gsvers']    = -1
+parttab['numparts1'] = 0
+parttab['numparts2'] = 0
+parttab['start1']    = list()
+parttab['len1']      = list()
+parttab['start2']    = list()
+parttab['len2']      = list()
+
+blocksz = 512
+
+# Write val as a 16 bit integer into array data[], starting at index start
+def write16(data, start, val):
+	data[start] = val & 0x00ff
+	data[start + 1] = (val & 0xff00) >> 8
+
+# Read a 32 bit integer from array data[], starting at index start
+def read32(data, start):
+	return (data[start] + 256 * (data[start+ 1] 
+	        + (256 * data[start+ 2] + (256 * data[start+ 3]))))
+
+# Write val as a 32 bit integer into array data[], starting at index start
+def write32(data, start, val):
+	data[start] = val & 0x000000ff
+	data[start + 1] = (val & 0x0000ff00) >> 8
+	data[start + 2] = (val & 0x00ff0000) >> 16
+	data[start + 3] = (val & 0xff000000) >> 24
+
+# Parse partition table from file f and populate parttab
+def read_part_tbl(f):
+	with open(f, 'rb') as infile:
+		b = infile.read(blocksz)
+		parttab['cyls']    = b[0x02] + b[0x03] * 256
+		parttab['heads']   = b[0x06] + b[0x07] * 256
+		parttab['sectors'] = b[0x08] + b[0x09] * 256
+		parttab['numparts1']  = b[0x0c]
+		parttab['numparts2']  = b[0x0d]
+		parttab['gsvers']  = b[0x18] + b[0x19] * 256
+		parttab['start1'] = list()
+		parttab['len1']   = list()
+		parttab['start2'] = list()
+		parttab['len2']   = list()
+		if parttab['numparts1'] > 0:
+			idx = 0x20
+			for i in range(parttab['numparts1']):
+				parttab['start1'].append(read32(b, idx + i * 4))
+				parttab['len1'].append(read32(b, idx + 0x20 + i * 4))
+		if parttab['numparts2'] > 0:
+			idx = 0x80
+			for i in range(parttab['numparts2']):
+				parttab['start2'].append(read32(b, idx + i * 4))
+				parttab['len2'].append(read32(b, idx + 0x20 + i * 4))
+
+# Display partition table information in parttab
+def print_part_tbl():
+	print('\nMicroDrive/Turbo Partition Table\n')
+	print('  Cylinders:   {}'.format(parttab['cyls']))
+	print('  Heads:       {}'.format(parttab['heads']))
+	print('  Sectors:     {}'.format(parttab['sectors']))
+	print('  GS ROM Vers: {}'.format(parttab['gsvers']))
+	if parttab['numparts1'] > 0:
+		print('\n  #    Start      End   Length')
+		for i in range(parttab['numparts1']):
+			st = parttab['start1'][i]
+			ln = parttab['len1'][i]
+			print('  {0} {1:8d} {2:8d} {3:8d}'
+			      .format(i + 1, st, st + ln - 1, ln))
+	if parttab['numparts2'] > 0:
+		for i in range(parttab['numparts2']):
+			st = parttab['start2'][i]
+			ln = parttab['len2'][i]
+			print('  {0} {1:8d} {2:8d} {3:8d}'
+			      .format(i + 9, st, st + ln - 1, ln))
+
+# Write partition table in parttab to file f
+# Writes 256 blocks (ie 128K)
+def write_part_tbl(f):
+	magic = 0xcacc
+	if ((parttab['cyls'] == -1)
+	    or (parttab['heads'] == -1)
+	    or (parttab['sectors'] == -1)
+	    or (parttab['gsvers'] == -1)
+	    or (parttab['numparts1'] == -1)
+	    or (parttab['numparts2'] == -1)):
+		print('** Not writing partition table - uninitialized data **')
+		exit()
+	print(parttab)
+	b = [0] * blocksz
+	write16(b, 0x00, magic)
+	write16(b, 0x02, parttab['cyls'])
+	write16(b, 0x06, parttab['heads'])
+	write16(b, 0x08, parttab['sectors'])
+	b[0x0c] = parttab['numparts1']
+	b[0x0d] = parttab['numparts2']
+	write16(b, 0x18, parttab['gsvers'])
+	for i in range(parttab['numparts1']):
+		write32(b, 0x20 + i * 4, parttab['start1'][i])
+		write32(b, 0x40 + i * 4, parttab['len1'][i])
+	for i in range(parttab['numparts2']):
+		write32(b, 0x80 + i * 4, parttab['start2'][i])
+		write32(b, 0xa0 + i * 4, parttab['len2'][i])
+	block = bytes(b)
+	with open(f, 'wb') as outfile:
+		outfile.write(block)
+		blanks = bytes([0] * blocksz)
+		for i in range(255):
+			outfile.write(blanks)
+
+# Extract partition n from file f and write it to outputfile
+def extract_partition(f, n, outputfile):
+	if n < 8:
+		st = parttab['start1'][n]
+		ln = parttab['len1'][n]
+	else:
+		st = parttab['start2'][n - 8]
+		ln = parttab['len2'][n - 8]
+	with open(f, 'rb') as infile:
+		infile.seek(st * blocksz)
+		d = infile.read(ln * blocksz)
+		print('Writing {} bytes to {}'.format(len(d), outputfile))
+		with open(outputfile, 'wb') as outfile:
+			outfile.write(d)
+
+# Extract all partitions from file f
+def explode_mdt_image(f):
+	for i in range(parttab['numparts1']):
+		filename = 'partition{}.po'.format(i + 1)
+		extract_partition(f, i, filename)
+	for i in range(parttab['numparts2']):
+		filename = 'partition{}.po'.format(i + 9)
+		extract_partition(f, i + 8, filename)
+
+# Replace an existing partition n in file f with file newpartfile
+# Checks newpartfile is the correct size to fit the partition
+def replace_partition(f, n, newpartfile):
+	# TODO
+	pass
+
+# Build an MDT image file f from a list of .po files and update the
+# partition table to match the files
+def assemble_mdt_image(f, files):
+
+	# Add a partition to parttab. i is the zero-based index
+	def add_partition(i, start, length):
+		if i < 8:
+			parttab['start1'].append(start)
+			parttab['len1'].append(length)
+			parttab['numparts1'] += 1
+		else:
+			parttab['start2'].append(start)
+			parttab['len2'].append(length)
+			parttab['numparts2'] += 1
+
+	currblk = 256
+	numparts = 0
+	for filename in files:
+		status = os.stat(filename)
+		sz = status.st_size // 512
+		add_partition(numparts, currblk, sz)
+		numparts += 1
+		currblk += sz
+	write_part_tbl(f)
+	for filename in files:
+		with open(filename, 'rb') as infile:
+			d = infile.read()
+			with open(f, 'ab') as outfile:
+				outfile.write(d)
+
+def initialize_blank_mdt():
+	pass
+
+def usage():
+	print('Usage:')
+	print('  mdttool [-haxlCHSG] [-o outputfile] inputfile [inputfile2...]\n')
+	print('  -h  Show this help')
+	print('  -a  Assemble CF Card image from list of .PO disk images')
+	print('  -x  eXplode a CF Card image into constituent partitions')
+	print('  -l  Display partition table');
+	print('  -C  Set number of cylinders (when assembling new image)')
+	print('  -H  Set number of heads (when assembling new image)')
+	print('  -S  Set number of sectors (when assembling new image)')
+	print('  -G  Set GS ROM version (when assembling new image)')
+
+# Main entry point and argument handling
+def main():
+	try:
+		opts, args = getopt.getopt(
+		               sys.argv[1:],
+		               'ho:axlCHSG',
+		               ['help', 'output=', 'assemble', 'explode', 'list',
+		                'cylinders', 'heads', 'sectors', 'gs'])
+	except getopt.GetoptError as err:
+		print(err)
+		usage()
+		sys.exit(2)
+
+	infile = None
+	outfile = None
+	assemble = False
+	explode = False
+	printtab = False
+	cylinders = default_cyls
+	heads = default_heads
+	sectors = default_sectors
+	gsvers = default_gsvers
+
+	for o, a in opts:
+		if o in ('-h', '--help'):
+			usage()
+			sys.exit()
+		elif o in ('-o', '--output'):
+			outfile = a
+		elif o in ('-a', '--assemble'):
+			assemble = True
+		elif o in ('-x', '--explode'):
+			explode = True
+		elif o in ('-l', '--list'):
+			printtab = True
+		elif o in ('-C', '--cylinders'):
+			cylinders = a
+		elif o in ('-H', '--heads'):
+			heads = a
+		elif o in ('-S', '--sectors'):
+			sectors = a
+		elif o in ('G', '--gs'):
+			gsvers = a
+		else:
+			assert False, 'Unhandled option'
+
+	if assemble:
+		if len(args) == 0:
+			print('Need at least one input file to assemble')
+			usage()
+			sys.exit(2)
+		if outfile == None:
+			print('Must specify output file with -o')
+			usage()
+			sys.exit(2)
+		parttab['cyls'] = cylinders
+		parttab['heads'] = heads
+		parttab['sectors'] = sectors
+		parttab['gsvers'] = gsvers
+		assemble_mdt_image(outfile, args)
+	else:
+		if len(args) == 0:
+			print('No input file provided')
+			usage()
+			sys.exit(2)
+		if len(args) > 1:
+			print('Provide only one input file')
+			usage()
+			sys.exit(2)
+		read_part_tbl(args[0])
+		if printtab:
+			print_part_tbl()
+		if explode:
+			explode_mdt_image(args[0])
+
+	sys.exit()
+	
+		
+main()
+
+
+
