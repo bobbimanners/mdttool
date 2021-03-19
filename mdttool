@@ -244,7 +244,7 @@ def initialize_blank_mdt():
 
 def usage():
 	print('Usage:')
-	print('  mdttool [-haxl] [-C nnnn] [-H nn] [-S nn] [-G mode] [-o outputfile] inputfile [inputfile2...]\n')
+	print('  mdttool [-haxl] [-C nnnn] [-H nn] [-S nn] [-D mode] [-o outputfile] inputfile [inputfile2...]\n')
 	print('  -h       Show this help')
 	print('  -a       Assemble CF Card image from list of .PO disk images')
 	print('  -x       eXplode a CF Card image into constituent partitions')

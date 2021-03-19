@@ -16,16 +16,18 @@ There are really three use cases for the tool at the current time:
      (or write directly to the raw CF card device.)
 
 ```
-  mdttool [-haxlCHSG] [-o outputfile] inputfile [inputfile2...]
+Usage:
+  mdttool [-haxl] [-C nnnn] [-H nn] [-S nn] [-D mode] [-o outputfile] inputfile [inputfile2...]
 
-  -h  --help       Show this help
-  -a  --assemble   Assemble CF Card image from list of .PO disk images
-  -x  --explode    eXplode a CF Card image into constituent partitions
-  -l  --list       Display partition table
-  -C  --cylinders  Set number of cylinders (when assembling new image)
-  -H  --heads      Set number of heads (when assembling new image)
-  -S  --sectors    Set number of sectors (when assembling new image)
-  -G  --gs         Set GS ROM version (when assembling new image)
+  -h       Show this help
+  -a       Assemble CF Card image from list of .PO disk images
+  -x       eXplode a CF Card image into constituent partitions
+  -l       Display partition table
+  -C  nnnn Set number of cylinders (when assembling new image)
+  -H  nn   Set number of heads (when assembling new image)
+  -S  nn   Set number of sectors (when assembling new image)
+  -D  mode DMA mode (when assembling new image)
+           mode can be off, iie, gsrom01, gsrom03
 ```
 
 ## Display Partition Table
@@ -73,14 +75,14 @@ Writing 256016384 bytes to partition4.po
 This command builds a MicroDrive/Turbo partition table from scratch.
 
 The partition table embeds the physical drive parameters - the number of
-cylinders, heads and sectors.  It also encodes the setting for Apple IIgs
-ROM01 and ROM03.
+cylinders, heads and sectors.  It also encodes the setting for the DMA
+mode (off, Apple //e, Apple IIgs ROM01 or Apple IIgs ROM03.)
 
 When creating a new CF card image in this way, MDTTool will use the
 hard-coded defaults for cylinders, heads, sectors and GS ROM version.  These
 defaults were copied from typical 512MB CF card.
 
-You can override these with the `-C`, `-H`, `-S` and `-G` command line
+You can override these with the `-C`, `-H`, `-S` and `-D` command line
 options.  The heads always seems to be set to 16 and the number of sectors
 to 63.  However the number of cylinders depends on the size of the CF card
 in question.
@@ -95,9 +97,10 @@ $ mdttool -a -o new-cf.img partition1.po partition2.po partition3.po partition4.
 New CF card image created in new-cf.img
 ```
 
-Overriding the number of cylinders is done like this:
+Another example, overriding the number of cylinders and setting the DMA mode
+for the Apple //e:
 ```
-$ mdttool -a -C 32000 -o new-cf.img partition1.po partition2.po partition3.po partition4.po 
+$ mdttool -a -D iie -C 32000 -o new-cf.img partition1.po partition2.po partition3.po partition4.po 
   Reading partition1.po ...
   Reading partition2.po ...
   Reading partition3.po ...
