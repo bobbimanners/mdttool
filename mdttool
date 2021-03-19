@@ -110,11 +110,24 @@ def read_part_tbl(f):
 
 # Display partition table information in parttab
 def print_part_tbl():
+	if parttab['gsvers'] == 0:
+		dma = 'iie'
+	elif parttab['gsvers'] == 1:
+		dma = 'gsrom01'
+	elif parttab['gsvers'] == 2:
+		dma = 'undefined'
+	elif parttab['gsvers'] == 3:
+		dma = 'gsrom03'
+	elif parttab['gsvers'] == 4:
+		dma = 'off'
+	else:
+		dma = '?'
+	
 	print('\nMicroDrive/Turbo Partition Table\n')
 	print('  Cylinders:   {}'.format(parttab['cyls']))
 	print('  Heads:       {}'.format(parttab['heads']))
 	print('  Sectors:     {}'.format(parttab['sectors']))
-	print('  GS ROM Vers: {}'.format(parttab['gsvers']))
+	print('  DMA Mode:    {}'.format(dma))
 	if parttab['numparts1'] > 0:
 		print('\n  #    Start      End   Length')
 		for i in range(parttab['numparts1']):
@@ -231,24 +244,25 @@ def initialize_blank_mdt():
 
 def usage():
 	print('Usage:')
-	print('  mdttool [-haxlCHSG] [-o outputfile] inputfile [inputfile2...]\n')
-	print('  -h  Show this help')
-	print('  -a  Assemble CF Card image from list of .PO disk images')
-	print('  -x  eXplode a CF Card image into constituent partitions')
-	print('  -l  Display partition table');
-	print('  -C  Set number of cylinders (when assembling new image)')
-	print('  -H  Set number of heads (when assembling new image)')
-	print('  -S  Set number of sectors (when assembling new image)')
-	print('  -G  Set GS ROM version (when assembling new image)')
+	print('  mdttool [-haxl] [-C nnnn] [-H nn] [-S nn] [-G mode] [-o outputfile] inputfile [inputfile2...]\n')
+	print('  -h       Show this help')
+	print('  -a       Assemble CF Card image from list of .PO disk images')
+	print('  -x       eXplode a CF Card image into constituent partitions')
+	print('  -l       Display partition table');
+	print('  -C  nnnn Set number of cylinders (when assembling new image)')
+	print('  -H  nn   Set number of heads (when assembling new image)')
+	print('  -S  nn   Set number of sectors (when assembling new image)')
+	print('  -D  mode DMA mode (when assembling new image)')
+	print('           mode can be off, iie, gsrom01, gsrom03')
 
 # Main entry point and argument handling
 def main():
 	try:
 		opts, args = getopt.getopt(
 		               sys.argv[1:],
-		               'ho:axlC:H:S:G:',
+		               'ho:axlC:H:S:D:',
 		               ['help', 'output=', 'assemble', 'explode', 'list',
-		                'cylinders', 'heads', 'sectors', 'gs'])
+		                'cylinders', 'heads', 'sectors', 'dma'])
 	except getopt.GetoptError as err:
 		print(err)
 		usage()
@@ -282,8 +296,19 @@ def main():
 			heads = int(a)
 		elif o in ('-S', '--sectors'):
 			sectors = int(a)
-		elif o in ('-G', '--gs'):
-			gsvers = int(a)
+		elif o in ('-D', '--dma'):
+			if a == 'iie':
+				gsvers = 0
+			elif a == 'gsrom01':
+				gsvers = 1
+			elif a == 'gsrom03':
+				gsvers = 3
+			elif a == 'off':
+				gsvers = 4
+			else:
+				print('Bad mode {}'.format(a))
+				usage()
+				sys.exit(2)
 		else:
 			assert False, 'Unhandled option'
 
