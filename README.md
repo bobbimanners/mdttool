@@ -59,15 +59,22 @@ MicroDrive/Turbo Partition Table
 Each partition will be written to a separate file in the current working
 directory.
 
-By default, these images are named `partition1.po`, `partition2.po` etc.
+For each partition, `mdttool` checks if the filesystem is HFS (whuch can
+be easily identified).  If the filesystem is not HFS it is assumed to be
+ProDOS format.  For both HFS and ProDOS the tool extracts the volume
+name and uses for the filename.
 
 For example:
 ```
-$ mdttool -x cf-card.img 
-Writing 33553920 bytes to partition1.po
-Writing 33553920 bytes to partition2.po
-Writing 33553920 bytes to partition3.po
-Writing 256016384 bytes to partition4.po
+$ ~/Personal/Development/mdttool/mdttool -x cf.img 
+** Partition 1 ProDOS Volume 'SYSTEM.6.0.4'
+Writing 33553920 bytes to SYSTEM.6.0.4.po
+** Partition 2 ProDOS Volume 'H1'
+Writing 33553920 bytes to H1.po
+** Partition 3 HFS Volume 'GNO'
+Writing 33553920 bytes to GNO.hfs
+** Partition 4 HFS Volume 'GS.Apps'
+Writing 402653184 bytes to GS.Apps.hfs
 ```
 
 ## Assemble a CF Card Image from a list of .PO Disk Images
