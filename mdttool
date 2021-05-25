@@ -177,8 +177,29 @@ def write_part_tbl(f):
 		for i in range(254):
 			outfile.write(block)
 
-# Extract partition n from file f and write it to outputfile
-def extract_partition(f, n, outputfile):
+# Obtain volume name of a partition
+def get_volname(infile, startidx):
+	infile.seek(startidx * blocksz + 1024)
+	mdb = infile.read(2)
+	if (mdb[0] == 0x42) and (mdb[1] == 0x44): # HFS Signature in Block 2
+		fstype = 'HFS'
+		infile.seek(startidx * blocksz + 1024 + 36)
+		volbytes = infile.read(27)
+		volname = bytearray()
+		for i in range(0, volbytes[0] & 0x0f):
+			volname.append(volbytes[i + 1])
+	else:
+		fstype = 'ProDOS' # If not HFS, must be ProDOS
+		infile.seek(startidx * blocksz + 1024 + 4)
+		volbytes = infile.read(15)
+		volname = bytearray()
+		for i in range(0, volbytes[0] & 0x0f):
+			volname.append(volbytes[i + 1])
+	return (fstype, volname.decode('ascii'))
+
+# Extract partition n from file f and write it to file named
+# according to the volume name
+def extract_partition(f, n):
 	if n < 8:
 		st = parttab['start1'][n]
 		ln = parttab['len1'][n]
@@ -186,6 +207,12 @@ def extract_partition(f, n, outputfile):
 		st = parttab['start2'][n - 8]
 		ln = parttab['len2'][n - 8]
 	with open(f, 'rb') as infile:
+		(fstype, volname) = get_volname(infile, st)
+		print('** Partition ' + str(n + 1) + ' ' + fstype + ' Volume \'' + volname + '\'')
+		if fstype == 'HFS':
+			outputfile = volname + '.hfs'
+		elif fstype == 'ProDOS':
+			outputfile = volname + '.po'
 		infile.seek(st * blocksz)
 		d = infile.read(ln * blocksz)
 		print('Writing {} bytes to {}'.format(len(d), outputfile))
@@ -195,17 +222,9 @@ def extract_partition(f, n, outputfile):
 # Extract all partitions from file f
 def explode_mdt_image(f):
 	for i in range(parttab['numparts1']):
-		filename = 'partition{}.po'.format(i + 1)
-		extract_partition(f, i, filename)
+		extract_partition(f, i)
 	for i in range(parttab['numparts2']):
-		filename = 'partition{}.po'.format(i + 9)
-		extract_partition(f, i + 8, filename)
-
-# Replace an existing partition n in file f with file newpartfile
-# Checks newpartfile is the correct size to fit the partition
-def replace_partition(f, n, newpartfile):
-	# TODO
-	pass
+		extract_partition(f, i + 8)
 
 # Build an MDT image file f from a list of .po files and update the
 # partition table to match the files
